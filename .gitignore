@@ -31,3 +31,10 @@
 # Debug files
 *.dSYM/
 *.su
+
+# LateX files
+.log
+.aux
+
+# macOS
+.DS_Store
