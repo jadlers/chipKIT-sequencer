@@ -5,35 +5,37 @@
 \usepackage[swedish]{babel}
 
 \title{MIDI Sequencer}
-\author{Jacob Adlers & Gustaf Pihl}
-\date{Oktober 27, 2016}
+\author{Jacob Adlers (960331-2472) & Gustaf Pihl (861223-7555)}
+\date{Oktober 31, 2016}
 
 \begin{document}
 \maketitle
 
 \section{Objective and requirements}
-Our goal is to turn the UNO32 Chipkit into a MIDI sequencer where we can use a MIDI keyboard to create sequences of MIDI data. We intend to output from the chipkit in MIDI form so that an external device can parse the output into sound. A sequencer is a electronic device for storing sequences of musical notes and rhythms.\\
+Our goal is to turn the UNO32 Chipkit into a MIDI sequencer where we can use a MIDI keyboard to create sequences of MIDI data. We intend to output from the chipkit in MIDI form so that an external device can parse the output into sound. A sequencer is a electronic device for storing sequences of musical notes and rhythms. We want to qualify as an advanced project.\\
 
 The main requirements of our project are:
 \begin{itemize}
-  \item record sequences from MIDI input
-  \item output the stored sequence via MIDI
-  \item clear the stored sequence
-  \item undo last edit
-  \item play/pause
+  \item Record sequences from MIDI input
+  \item Output the stored sequence via MIDI
+  \item Clear the stored sequence
+  \item Undo last edit
+  \item Play/pause
+  \item Toggle record enable/disable
 \end{itemize}
 
 If there is time for it we will implement the following:
 \begin{itemize}
-  \item remove specific note in sequence
-  \item adjustable BPM (tempo)
-  \item use LCDs to display information about the saved sequence
-  \item transpose function
-  \item multiple sequences stored
+  \item Remove specific note in sequence
+  \item Adjustable BPM (tempo)
+  \item Use LCDs to display information about the saved sequence
+  \item Transpose function
+  \item Multiple sequences stored
+  \item Mutable quantization
 \end{itemize}
 
 \section{Solution}
-
+We will use the ChipKIT Uno 32 board along with the Basic I/O shield to develop our sequencer. The buttons and switches on the I/O shield will be used to implement the features listed in our requirements. We will use a matrix (2D-array) to store input MIDI data on the ChipKIT, where the columns represent time intervals and each row represents one pitch. A timer will loop through the columns of the matrix and send the MIDI data stored in each column using UART to external devices.
 
 \section{Validation}
 We will connect our MIDI output to an external device and record a sequence. If the sequence is played back by the device then our sequencer is working properly.
