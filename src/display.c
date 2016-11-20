@@ -25,6 +25,24 @@ char textbuffer[4][16];
 const uint8_t const font[];
 const uint8_t const icon[];
 
+/* Helper function, local to this file.
+   Converts a number to hexadecimal ASCII digits. */
+static void num32asc( char * s, int n )
+{
+  int i;
+  for( i = 28; i >= 0; i -= 4 )
+    *s++ = "0123456789ABCDEF"[ (n >> i) & 15 ];
+}
+
+/* quicksleep:
+   A simple function to create a small delay.
+   Very inefficient use of computing resources,
+   but very handy in some special cases. */
+void quicksleep(int cyc) {
+	int i;
+	for(i = cyc; i > 0; i--);
+}
+
 /* display_debug
    A function to help debugging.
 
