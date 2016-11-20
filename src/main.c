@@ -1,26 +1,40 @@
 #include <pic32mx.h>
 
 int a = 0;
-int b = 0;
+int array_pos = 0;
+
+struct message {
+	unsigned char command;
+	unsigned char note;
+	unsigned char velocity;
+};
+
+struct message messages[10];
 
 /* Interrupt Service Routine */
 void user_isr( void ) {
 	if (IFS(0) & (1 << 27)) {
-		unsigned char tmp1 = U1RXREG & 0xFF;
-		unsigned char tmp2 = U1RXREG & 0xFF;
-		unsigned char tmp3 = U1RXREG & 0xFF;
-		PORTE = tmp2;
+		unsigned char cmd = U1RXREG & 0xFF;
+		unsigned char note = U1RXREG & 0xFF;
+		unsigned char vel = U1RXREG & 0xFF;
+		struct message inst = {
+			cmd,
+			note,
+			vel
+		};
+
+		messages[a] = inst;
+		PORTE = note;
+		display_string(0, itoaconv(a));
+		if(++a == 10) {
+			a = 0;
+		}
 		unsigned char arr[2];
-		arr[0] = tmp2;
-		arr[1] = '\0';
-		display_string(1, itoaconv(a));
-		display_string(2, arr);
-		a++;
+
+		display_update();
+
 		IFSCLR(0) = 1 << 27;
 	}
-	display_string(3, itoaconv(b));
-	display_update();
-	b++;
 }
 
 void delay(int cyc) {
@@ -76,8 +90,12 @@ void init() {
 
 	display_init();
 
-	display_string(1,"BAJS");
+	display_string(1,"I'm ready");
+	display_string(2,"try me!");
 	display_update();
+
+	// Set buttons and switches to input
+	TRISDSET = (0x7f << 5);
 
 	/* Configure UART1 for 115200 baud, no interrupts */
 	U1BRG = calculate_baudrate_divider(80000000, 31250, 0);
@@ -97,6 +115,22 @@ void init() {
 	enable_interrupt(); //Enable interrupts globally
 }
 
+int get_sw( void ) {
+   return ((PORTD & (0xF << 8)) >> 8);
+}
+
+int get_btns(void) {
+   return ((PORTD & (7 << 5)) >> 5);
+}
+
+char* char2str(char c) {
+	static char arr[2];
+	arr[0] = c;
+	arr[1] = '\0';
+	return arr;
+}
+
+
 int main(void) {
 	unsigned char tmp;
 	delay(10000000);
@@ -106,14 +140,25 @@ int main(void) {
 	init();
 
 
-
-
 	for (;;) {
-		// while(!(U1STA & 0x1)); //wait for read buffer to have a value
-		// tmp = U1RXREG & 0xFF;
-		// while(U1STA & (1 << 9)); //make sure the write buffer is not full
-		// U1TXREG = tmp;
-		// PORTE = tmp;
+		int pressed = get_btns();
+		if (pressed & 1) {
+			display_string(1,"Enter for");
+			display_update();
+			struct message i = messages[array_pos];
+
+			while(U1STA & (1 << 9)); //make sure the write buffer is not full
+			U1TXREG = i.command;	// command
+			U1TXREG = i.note;	// note
+			U1TXREG = i.velocity;	// velocity
+
+			if (++array_pos == 10) {
+				array_pos = 0;
+			}
+			delay(6000000);
+			display_string(1,"Exit for");
+			display_update();
+		}
 	}
 
 	return 0;
