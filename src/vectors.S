@@ -18,6 +18,11 @@
 		jr $k0
 .endm
 
+.global enable_interrupt
+enable_interrupt:
+	ei
+	jr $ra
+
 .align 4
 .global __use_isr_install
 __use_isr_install:
@@ -174,7 +179,7 @@ _isr_primary_install:
 .align 4
 .set noreorder
 .global _isr_trampoline
-_isr_trampoline:	
+_isr_trampoline:
 	# this is an interrupt service routine
 
 	# tell the assembler not to use $1 right now
@@ -198,8 +203,8 @@ _isr_trampoline:
 	sw $13,52($sp) # $t5
 	sw $14,56($sp) # $t6
 	sw $15,60($sp) # $t7
-	sw $24,64($sp) # $t8 
-	sw $25,68($sp) # $t9 
+	sw $24,64($sp) # $t8
+	sw $25,68($sp) # $t9
 
 	# Any callee-saved regs ($s0 etc) used by user's handler
 	# will be saved and restored by that handler
@@ -236,6 +241,7 @@ _isr_trampoline:
 	# standard epilogue follows
 	eret
 	nop
+
 
 
 # Exceptions are handled here (trap, syscall, etc)

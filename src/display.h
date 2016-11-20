@@ -34,3 +34,5 @@ extern const uint8_t const font[128*8];
 extern const uint8_t const icon[128];
 /* Declare text buffer for display output */
 extern char textbuffer[4][16];
+
+char * itoaconv( int num );
