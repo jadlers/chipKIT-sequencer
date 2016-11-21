@@ -139,12 +139,15 @@ void display_midi_info(struct message m) {
 	} else {
 		display_string(1, "Something else");
 	}
+
 	/* Note */
 	unsigned char note_check = m.note;
-	display_string(2, char2str(note_check));
+	display_string(2, itoaconv(note_check));
+
 	/* Velocity */
 	unsigned char velocity_check = m.velocity;
-	display_string(3, char2str(velocity));
+	display_string(3, itoaconv(velocity_check));
+	display_update();
 }
 
 
@@ -152,26 +155,23 @@ int main(void) {
 	quicksleep(10000000);
 	init();
 
-
 	for (;;) {
 		int pressed = get_btns();
 		if (pressed & 1) {
-			display_string(1,"Enter for");
-			display_update();
-			struct message i = messages[array_pos_read];
+			struct message msg = messages[array_pos_read];
 
 			/* Send MIDI message */
 			while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-			U1TXREG = i.command;
-			U1TXREG = i.note;
-			U1TXREG = i.velocity;
+			U1TXREG = msg.command;
+			U1TXREG = msg.note;
+			U1TXREG = msg.velocity;
 
 			if (++array_pos_read == 10) {
 				array_pos_read = 0;
 			}
-			quicksleep(6000000);
-			display_string(1,"Exit for");
-			display_update();
+
+			display_midi_info(msg); // Display info about the send message
+			quicksleep(6000000); // Delay to avoid stepping through multiple messages
 		}
 	}
 
