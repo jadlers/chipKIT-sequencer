@@ -128,6 +128,25 @@ char* char2str(char c) {
 	return arr;
 }
 
+/* Display info about a MIDI message */
+void display_midi_info(struct message m) {
+	/* Command */
+	unsigned char command_check = (m.command & 0xF0) >> 4;
+	if (command_check == 0x8) {
+		display_string(1, "Note Off");
+	} else if (command_check == 0x9) {
+		display_string(1, "Note On");
+	} else {
+		display_string(1, "Something else");
+	}
+	/* Note */
+	unsigned char note_check = m.note;
+	display_string(2, char2str(note_check));
+	/* Velocity */
+	unsigned char velocity_check = m.velocity;
+	display_string(3, char2str(velocity));
+}
+
 
 int main(void) {
 	quicksleep(10000000);
