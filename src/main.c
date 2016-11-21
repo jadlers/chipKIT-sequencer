@@ -2,6 +2,8 @@
 
 int array_pos_write = 0;
 int array_pos_read = 0;
+int time_counter = 0;		// Amount of 1/100-seconds from beginning of the loop
+int beat_length = 12;		// Amount of 1/100-seconds per beat
 
 /* struct for MIDI messages */
 struct message {
@@ -10,7 +12,7 @@ struct message {
 	unsigned char velocity;
 };
 
-struct message messages[10];	// array with 10 MIDI messages for testing
+struct message messages[16];	// array with 10 MIDI messages for testing
 
 /* Interrupt Service Routine */
 void user_isr( void ) {
@@ -30,11 +32,17 @@ void user_isr( void ) {
 		display_string(0, itoaconv(array_pos_write));
 		display_update();
 
-		if(++array_pos_write == 10) {
+		if(++array_pos_write == sizeof(messages)/sizeof(struct message)) {
 			array_pos_write = 0;
 		}
 
 		IFSCLR(0) = 1 << 27;	// Clear interrupt flag
+	}
+	/* Timer2 interupt */
+	if (IFS(0) & (1 << 8)) {
+		time_counter++;
+		TMR2 = 0;						// Clear Timer2 counter
+		IFSCLR(0) = 1 << 8;	// Clear interupt flag
 	}
 }
 
@@ -100,6 +108,16 @@ void init() {
 	U1STACLR = 0x40;			// Clear bit 6
 	PORTECLR = 0xFF;			// Clear LEDs
 
+	/* Timer setup with interrupts */
+	T2CON = 0;
+	T2CON |= 0x0060;		// Timer on (T2CON bit 1) (ITS NOT ON (0x8060 TO TURN ON))
+	T2CON &= ~0x010;		// Prescale 1:256 (T2CON bit 6-4 = 110)
+	PR2 = 12500;				// Set period to 12500
+	TMR2 = 0;						// Clear Timer2 counter
+	IECSET(0) = 1 << 8;	// Enable interrupts for Timer2
+	IPCSET(2) = 0xE;		// Set prio = 3 & subprio = 2
+	IFSCLR(0) = 1 << 8;	// Clear interupt flag
+
 	/* Interrupt configuration */
 	IECSET(0) = 1 << 27; 	// Enable recieve interrupt (U1RXIE set)
 	IPCSET(6) = 0x1f; 		// Set highest priority and subpriority
@@ -150,29 +168,55 @@ void display_midi_info(struct message m) {
 	display_update();
 }
 
+/* Send note off to all notes */
+void turn_off_all_notes() {
+	display_string(0, "Begin clearing");
+	display_update();
+	unsigned char i;
+	for (i = 0; i < 128; i++) {
+		while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+		U1TXREG = 0x80;
+		while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+		U1TXREG = i;
+		while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+		U1TXREG = 0x00;
+	}
+	display_string(0, "Cleared all");
+	display_update();
+}
 
 int main(void) {
 	quicksleep(10000000);
 	init();
 
-	for (;;) {
-		int pressed = get_btns();
-		if (pressed & 1) {
-			struct message msg = messages[array_pos_read];
 
+	for (;;) {
+		// display_string(1, itoaconv(time_counter));
+		// display_update();
+		if (time_counter > beat_length) {
+			struct message msg = messages[array_pos_read];
 			/* Send MIDI message */
 			while(U1STA & (1 << 9));	// Make sure the write buffer is not full
 			U1TXREG = msg.command;
 			U1TXREG = msg.note;
 			U1TXREG = msg.velocity;
 
-			if (++array_pos_read == 10) {
+			if (++array_pos_read == sizeof(messages)/sizeof(struct message)) {
 				array_pos_read = 0;
+				// turn_off_all_notes();	// TODO temporary fix, find other solution
 			}
 
-			display_midi_info(msg); // Display info about the send message
-			quicksleep(6000000); // Delay to avoid stepping through multiple messages
+			display_midi_info(msg); 		// Display info about the send message
+			time_counter = 0;
 		}
+
+		int btns = get_btns();
+		if (btns & 1) {
+			T2CON |= 0x8000;		// Timer on
+		} else if (btns & 2) {
+			T2CON &= ~0x08000;	// Timer off
+		}
+
 	}
 
 	return 0;
