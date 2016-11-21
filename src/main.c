@@ -1,45 +1,41 @@
 #include <pic32mx.h>
 
-int a = 0;
-int array_pos = 0;
+int array_pos_write = 0;
+int array_pos_read = 0;
 
+/* struct for MIDI messages */
 struct message {
 	unsigned char command;
 	unsigned char note;
 	unsigned char velocity;
 };
 
-struct message messages[10];
+struct message messages[10];	// array with 10 MIDI messages for testing
 
 /* Interrupt Service Routine */
 void user_isr( void ) {
+	/* MIDI receive interrupt */
 	if (IFS(0) & (1 << 27)) {
 		unsigned char cmd = U1RXREG & 0xFF;
 		unsigned char note = U1RXREG & 0xFF;
 		unsigned char vel = U1RXREG & 0xFF;
-		struct message inst = {
+		struct message mes = {
 			cmd,
 			note,
 			vel
 		};
 
-		messages[a] = inst;
-		PORTE = note;
-		display_string(0, itoaconv(a));
-		if(++a == 10) {
-			a = 0;
-		}
-		unsigned char arr[2];
-
+		messages[array_pos_write] = mes;	// Add message struct to array
+		PORTE = note;											// Display played note on LEDs
+		display_string(0, itoaconv(array_pos_write));
 		display_update();
 
-		IFSCLR(0) = 1 << 27;
-	}
-}
+		if(++array_pos_write == 10) {
+			array_pos_write = 0;
+		}
 
-void delay(int cyc) {
-	int i;
-	for(i = cyc; i > 0; i--);
+		IFSCLR(0) = 1 << 27;	// Clear interrupt flag
+	}
 }
 
 int calculate_baudrate_divider(int sysclk, int baudrate, int highspeed) {
@@ -88,31 +84,33 @@ void init() {
 	/* SPI2CON bit ON = 1; */
 	SPI2CONSET = 0x8000;
 
-	display_init();
-
-	display_string(1,"I'm ready");
-	display_string(2,"try me!");
-	display_update();
-
-	// Set buttons and switches to input
+	/* Set buttons and switches to input */
 	TRISDSET = (0x7f << 5);
 
+	/* TODO Found in is1200-examples hello-serial repo, read about it */
+	ODCE = 0;
+	TRISECLR = 0xFF;
 	/* Configure UART1 for 115200 baud, no interrupts */
 	U1BRG = calculate_baudrate_divider(80000000, 31250, 0);
 	U1STA = 0;
 	/* 8-bit data, no parity, 1 stop bit */
 	U1MODE = 0x8000;
 	/* Enable transmit and recieve */
-	U1STASET = 0x1400;
-	PORTECLR = 0xFF;
+	U1STASET = 0x1480;		// Set bit 12, 10 & 7
+	U1STACLR = 0x40;			// Clear bit 6
+	PORTECLR = 0xFF;			// Clear LEDs
 
-	//Interrupt configuration
-	IECSET(0) = 1 << 27; //Enable recieve interrupt (U1RXIE set)
-	IPCSET(6) = 0x1f; //Set highest priority and subpriority
-	IFSCLR(0) = 1 << 27; //Clear flag
-	U1STASET = 1 << 7;
+	/* Interrupt configuration */
+	IECSET(0) = 1 << 27; 	// Enable recieve interrupt (U1RXIE set)
+	IPCSET(6) = 0x1f; 		// Set highest priority and subpriority
+	IFSCLR(0) = 1 << 27; 	// Clear flag
 
-	enable_interrupt(); //Enable interrupts globally
+	enable_interrupt(); 	// Enable interrupts globally
+
+	display_init();
+	display_string(1,"I'm ready");
+	display_string(2,"try me!");
+	display_update();
 }
 
 int get_sw( void ) {
@@ -132,11 +130,7 @@ char* char2str(char c) {
 
 
 int main(void) {
-	unsigned char tmp;
-	delay(10000000);
-	ODCE = 0;
-	TRISECLR = 0xFF;
-
+	quicksleep(10000000);
 	init();
 
 
@@ -145,17 +139,18 @@ int main(void) {
 		if (pressed & 1) {
 			display_string(1,"Enter for");
 			display_update();
-			struct message i = messages[array_pos];
+			struct message i = messages[array_pos_read];
 
-			while(U1STA & (1 << 9)); //make sure the write buffer is not full
-			U1TXREG = i.command;	// command
-			U1TXREG = i.note;	// note
-			U1TXREG = i.velocity;	// velocity
+			/* Send MIDI message */
+			while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+			U1TXREG = i.command;
+			U1TXREG = i.note;
+			U1TXREG = i.velocity;
 
-			if (++array_pos == 10) {
-				array_pos = 0;
+			if (++array_pos_read == 10) {
+				array_pos_read = 0;
 			}
-			delay(6000000);
+			quicksleep(6000000);
 			display_string(1,"Exit for");
 			display_update();
 		}
