@@ -26,6 +26,25 @@ void led_init() {
   PORTECLR = 0xFF;   // Clear LEDs
 }
 
+int calculate_baudrate_divider(int sysclk, int baudrate, int highspeed) {
+	int pbclk, uxbrg, divmult;
+	unsigned int pbdiv;
+
+	divmult = (highspeed) ? 4 : 16;
+	/* Periphial Bus Clock is divided by PBDIV in OSCCON */
+	pbdiv = (OSCCON & 0x180000) >> 19;
+	pbclk = sysclk >> pbdiv;
+
+	/* Multiply by two, this way we can round the divider up if needed */
+	uxbrg = ((pbclk * 2) / (divmult * baudrate)) - 2;
+	/* We'll get closer if we round up */
+	if (uxbrg & 1)
+		uxbrg >>= 1, uxbrg++;
+	else
+		uxbrg >>= 1;
+	return uxbrg;
+}
+
 void uart_init() {
   /* On Uno32, we're assuming we're running with sysclk == 80 MHz */
 	/* Periphial bust can run at a maximum of 40 MHz, setting PBDIV to 1 divides sysclk with 2 */
