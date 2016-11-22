@@ -103,23 +103,6 @@ void display_midi_info(struct message m) {
 	display_update();
 }
 
-/* Send note off to all notes */
-void turn_off_all_notes() {
-	display_string(0, "Begin clearing");
-	display_update();
-	unsigned char i;
-	for (i = 0; i < 128; i++) {
-		while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-		U1TXREG = 0x80;
-		while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-		U1TXREG = i;
-		while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-		U1TXREG = 0x00;
-	}
-	display_string(0, "Cleared all");
-	display_update();
-}
-
 int main(void) {
 	quicksleep(10000000);
 	init();
