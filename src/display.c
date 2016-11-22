@@ -73,6 +73,26 @@ uint8_t spi_send_recv(uint8_t data) {
 }
 
 void display_init(void) {
+  /* Output pins for display signals */
+	PORTF = 0xFFFF;
+	PORTG = (1 << 9);
+	ODCF = 0x0;
+	ODCG = 0x0;
+	TRISFCLR = 0x70;
+	TRISGCLR = 0x200;
+
+  /* Set up SPI as master */
+  SPI2CON = 0;
+  SPI2BRG = 4;
+  /* SPI2STAT bit SPIROV = 0; */
+  SPI2STATCLR = 0x40;
+  /* SPI2CON bit CKP = 1; */
+  SPI2CONSET = 0x40;
+  /* SPI2CON bit MSTEN = 1; */
+  SPI2CONSET = 0x20;
+  /* SPI2CON bit ON = 1; */
+  SPI2CONSET = 0x8000;
+
   DISPLAY_CHANGE_TO_COMMAND_MODE;
 	quicksleep(10);
 	DISPLAY_ACTIVATE_VDD;
