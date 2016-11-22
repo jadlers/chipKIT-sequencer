@@ -1,10 +1,12 @@
 #include <pic32mx.h>
 #include "init.h"
 
-int array_pos_write = 0;
-int array_pos_read = 0;
+const int NOTE_ON_MAX = 10;
+int COLUMNS;						// Kinda const
+int ROWS;								// Kinda const
+int current_column = 0;
 int time_counter = 0;		// Amount of 1/100-seconds from beginning of the loop
-int beat_length = 12;		// Amount of 1/100-seconds per beat
+int beat_length;				// Amount of 1/100-seconds per beat (changed with potentiometer)
 
 /* struct for MIDI messages */
 struct message {
@@ -13,7 +15,30 @@ struct message {
 	unsigned char velocity;
 };
 
-struct message messages[16];	// array with 10 MIDI messages for testing
+struct message messages[64][64];		// Matrix storing MIDI messages
+unsigned char column_lengths[64];		// Number of messages stored in each column
+unsigned char note_on_counters[64];	// Number of note on messages stored in each column
+
+void save_message(struct message msg) {
+	char note_on = ((msg.command & 0xF0) >> 4 == 0x9);	// 1 if command is note on, 0 otherwise
+	int save_column = current_column;
+
+	if (time_counter > beat_length / 2) {
+		save_column = (save_column + 1) % COLUMNS; // Round to nearest column
+	}
+
+	if (note_on) {
+		if (note_on_counters[save_column] >= NOTE_ON_MAX) {
+			return; // Maximum number of allowed note on commands in column reached: Don't save
+		}
+		note_on_counters[save_column]++;
+	}
+
+	if (column_lengths[save_column] < ROWS) { // Make sure we don't overflow messages in save_column
+		messages[save_column][column_lengths[save_column]] = msg;	// Add message struct to array
+		column_lengths[save_column]++;
+	}
+}
 
 /* Interrupt Service Routine */
 void user_isr( void ) {
@@ -22,17 +47,13 @@ void user_isr( void ) {
 		unsigned char cmd = U1RXREG & 0xFF;
 		unsigned char note = U1RXREG & 0xFF;
 		unsigned char vel = U1RXREG & 0xFF;
-		struct message mes = {
+		struct message msg = {
 			cmd,
 			note,
 			vel
 		};
 
-		messages[array_pos_write] = mes;	// Add message struct to array
-
-		if(++array_pos_write == sizeof(messages)/sizeof(struct message)) {
-			array_pos_write = 0;
-		}
+		save_message(msg);
 
 		IFSCLR(0) = 1 << 27;	// Clear interrupt flag
 	}
@@ -85,6 +106,17 @@ int main(void) {
 	quicksleep(10000000);
 	init();
 
+	/* Setup for arrays and matrix */
+	ROWS = sizeof(messages[0]) / sizeof(struct message);
+	COLUMNS = sizeof(messages) / (sizeof(struct message) * ROWS);
+
+	// TODO move initialization of arrays to init.c
+  int i;
+  for (i = 0; i < COLUMNS; i++) {
+		column_lengths[i] = 0;
+		note_on_counters[i] = 0;
+  }
+
 	for (;;) {
 		/* Start sampling potentiometer, wait until conversion is done */
 		AD1CON1 |= (0x1 << 1);
@@ -100,15 +132,20 @@ int main(void) {
 		if (time_counter > beat_length) {
 			PORTE = ~PORTE; // Flash the current tempo on the LEDs
 
-			struct message msg = messages[array_pos_read];
-			/* Send MIDI message */
-			while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-			U1TXREG = msg.command;
-			U1TXREG = msg.note;
-			U1TXREG = msg.velocity;
+			/* For loop to go trough all rows in current column */
+			int i;
+			for (i = 0; i < column_lengths[current_column]; i++) {
+				struct message msg = messages[current_column][i];
+				/* Send MIDI message */
+				while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+				U1TXREG = msg.command;
+				U1TXREG = msg.note;
+				U1TXREG = msg.velocity;
+			}
 
-			if (++array_pos_read == sizeof(messages)/sizeof(struct message)) {
-				array_pos_read = 0;
+			/* Increment the current column and wrap around at end of matrix */
+			if (++current_column == COLUMNS) {
+				current_column = 0;
 			}
 
 			time_counter = 0;
