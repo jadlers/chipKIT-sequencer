@@ -89,6 +89,7 @@ void init() {
   led_init();
   timer_init();
   display_init();
+  shield_input_init();
 	enable_interrupt(); // Enable interrupts globally
 
   /* Display that the initialization is complete */

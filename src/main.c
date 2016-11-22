@@ -29,9 +29,6 @@ void user_isr( void ) {
 		};
 
 		messages[array_pos_write] = mes;	// Add message struct to array
-		PORTE = note;											// Display played note on LEDs
-		display_string(0, itoaconv(array_pos_write));
-		display_update();
 
 		if(++array_pos_write == sizeof(messages)/sizeof(struct message)) {
 			array_pos_write = 0;
@@ -88,11 +85,21 @@ int main(void) {
 	quicksleep(10000000);
 	init();
 
-
 	for (;;) {
-		// display_string(1, itoaconv(time_counter));
-		// display_update();
+		/* Start sampling potentiometer, wait until conversion is done */
+		AD1CON1 |= (0x1 << 1);
+		while(!(AD1CON1 & (0x1 << 1)));
+		while(!(AD1CON1 & 0x1));
+
+		/* Get the analog value and update beat_length */
+		unsigned int value = (ADC1BUF0 >> 5);
+		beat_length = 32 - value;
+		display_string(3, itoaconv(beat_length));
+		display_update();
+
 		if (time_counter > beat_length) {
+			PORTE = ~PORTE; // Flash the current tempo on the LEDs
+
 			struct message msg = messages[array_pos_read];
 			/* Send MIDI message */
 			while(U1STA & (1 << 9));	// Make sure the write buffer is not full
@@ -102,10 +109,8 @@ int main(void) {
 
 			if (++array_pos_read == sizeof(messages)/sizeof(struct message)) {
 				array_pos_read = 0;
-				// turn_off_all_notes();	// TODO temporary fix, find other solution
 			}
 
-			display_midi_info(msg); 		// Display info about the send message
 			time_counter = 0;
 		}
 
@@ -115,7 +120,6 @@ int main(void) {
 		} else if (btns & 2) {
 			T2CON &= ~0x08000;	// Timer off
 		}
-
 	}
 
 	return 0;
