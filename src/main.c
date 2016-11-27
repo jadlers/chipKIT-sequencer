@@ -1,12 +1,14 @@
 #include <pic32mx.h>
 #include "init.h"
 
+#define COLUMNS 32
+#define ROWS 64
+
 const int NOTE_ON_MAX = 10;
-int COLUMNS;						// Kinda const
-int ROWS;								// Kinda const
 int current_column = 0;
 int time_counter = 0;		// Amount of 1/100-seconds from beginning of the loop
 int beat_length;				// Amount of 1/100-seconds per beat (changed with potentiometer)
+int play = 0;						// Send MIDI from matrix
 
 /* struct for MIDI messages */
 struct message {
@@ -15,9 +17,9 @@ struct message {
 	unsigned char velocity;
 };
 
-struct message messages[64][64];		// Matrix storing MIDI messages
-unsigned char column_lengths[64];		// Number of messages stored in each column
-unsigned char note_on_counters[64];	// Number of note on messages stored in each column
+struct message messages[COLUMNS][ROWS];		// Matrix storing MIDI messages
+unsigned char column_lengths[COLUMNS];		// Number of messages stored in each column
+unsigned char note_on_counters[COLUMNS];	// Number of note on messages stored in each column
 
 void save_message(struct message msg) {
 	char note_on = ((msg.command & 0xF0) >> 4 == 0x9);	// 1 if command is note on, 0 otherwise
@@ -106,10 +108,6 @@ int main(void) {
 	quicksleep(10000000);
 	init();
 
-	/* Setup for arrays and matrix */
-	ROWS = sizeof(messages[0]) / sizeof(struct message);
-	COLUMNS = sizeof(messages) / (sizeof(struct message) * ROWS);
-
 	// TODO move initialization of arrays to init.c
   int i;
   for (i = 0; i < COLUMNS; i++) {
@@ -117,30 +115,35 @@ int main(void) {
 		note_on_counters[i] = 0;
   }
 
-	for (;;) {
-		/* Start sampling potentiometer, wait until conversion is done */
-		AD1CON1 |= (0x1 << 1);
-		while(!(AD1CON1 & (0x1 << 1)));
-		while(!(AD1CON1 & 0x1));
+	T2CON |= 0x8000;		// Timer on
 
-		/* Get the analog value and update beat_length */
-		unsigned int value = (ADC1BUF0 >> 5);
-		beat_length = 32 - value;
-		display_string(3, itoaconv(beat_length));
-		display_update();
+	for (;;) {
 
 		if (time_counter > beat_length) {
+			/* Start sampling potentiometer, wait until conversion is done */
+			AD1CON1 |= (0x1 << 1);
+			while(!(AD1CON1 & (0x1 << 1)));
+			while(!(AD1CON1 & 0x1));
+
+			/* Get the analog value and update beat_length */
+			unsigned int value = (ADC1BUF0 >> 5);
+			beat_length = 32 - value;
+
 			PORTE = ~PORTE; // Flash the current tempo on the LEDs
 
 			/* For loop to go trough all rows in current column */
-			int i;
-			for (i = 0; i < column_lengths[current_column]; i++) {
-				struct message msg = messages[current_column][i];
-				/* Send MIDI message */
-				while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-				U1TXREG = msg.command;
-				U1TXREG = msg.note;
-				U1TXREG = msg.velocity;
+			if (play) {
+				int i;
+				for (i = 0; i < column_lengths[current_column]; i++) {
+					struct message msg = messages[current_column][i];
+					/* Send MIDI message */
+					while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+					U1TXREG = msg.command;
+					while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+					U1TXREG = msg.note;
+					while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+					U1TXREG = msg.velocity;
+				}
 			}
 
 			/* Increment the current column and wrap around at end of matrix */
@@ -153,9 +156,9 @@ int main(void) {
 
 		int btns = get_btns();
 		if (btns & 1) {
-			T2CON |= 0x8000;		// Timer on
+			play = 1;
 		} else if (btns & 2) {
-			T2CON &= ~0x08000;	// Timer off
+			play = 0;
 		}
 	}
 
