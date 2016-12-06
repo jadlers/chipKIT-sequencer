@@ -172,11 +172,14 @@ int main(void) {
 				current_column = 0;
 			}
 
-			/* For loop to go trough all rows in current column */
-
+			/* If switch 4 if up play metronome */
 			if (current_column % 4 == 0) {
-				metronome();
+				if (get_sw() & (1 << 3)) {
+					metronome();
+				}
 			}
+
+			/* For loop to go trough all rows in current column */
 			int i;
 			for (i = 0; i < column_lengths[current_column]; i++) {
 				struct message msg = messages[current_column][i];
@@ -195,8 +198,7 @@ int main(void) {
 
 			time_counter = 0;
 		}
-		// display_string(3, itoaconv(btns));
-		// display_update();
+
 		int new_btns = get_btns();
 		if (!(btns & 1) && (new_btns & 1)) {		// Button has been pressed
 			if (play) {
