@@ -142,6 +142,31 @@ void all_notes_off() {
 	}
 }
 
+void fix_previous_column() {
+	int cleanup_column = (current_column + COLUMNS - 2) % COLUMNS;
+	for (i = 0; i < column_lengths[cleanup_column]; i++) {
+		struct message msg1 = messages[cleanup_column][i];
+		if (msg1.command == 0x90) {
+			int j;
+			for (j = i+1; j < column_lengths[cleanup_column]; j++) {
+				struct message msg2 = messages[cleanup_column][j];
+				if (msg1.note == msg2.note) {
+					if (msg2.command == 0x80) {
+						// Move msg2 to next column
+						int next_column = (cleanup_column + 1) % COLUMNS;
+						messages[next_column][column_lengths[next_column]] = messages[cleanup_column][j];
+						column_lengths[next_column]++;
+					}
+					// Put last message on place j and decrement column_lengths
+					messages[cleanup_column][j] = messages[cleanup_column][column_lengths[cleanup_column] - 1];
+					column_lengths[cleanup_column]--;
+					j--;	// Compare msg1 with moved message next iteration
+				}
+			}
+		}
+	}
+}
+
 void clear_column_lengths() {
 	int i;
 	for (i = 0; i < COLUMNS; i++) {
@@ -156,10 +181,13 @@ int main(void) {
 
 
 	T2CON |= 0x8000;		// Timer on
+	display_string(3, "Playing");
+	display_update();
 
 	for (;;) {
 
 		if (time_counter > beat_length) {
+			time_counter = 0;
 			/* Start sampling potentiometer, wait until conversion is done */
 			AD1CON1 |= (0x1 << 1);
 			while(!(AD1CON1 & (0x1 << 1)));
@@ -200,7 +228,8 @@ int main(void) {
 				}
 			}
 
-			time_counter = 0;
+			fix_previous_column();
+
 		}
 
 		record = get_sw() & (1 << 2);
@@ -209,9 +238,13 @@ int main(void) {
 			if (play) {
 				play = 0;
 				T2CON &= ~0x8000;		// Timer off
+				display_string(3, "Paused");
+				display_update();
 				all_notes_off();
 			} else {
 				play = 1;
+				display_string(3, "Playing");
+				display_update();
 				T2CON |= 0x8000;		// Timer on
 			}
 		}
