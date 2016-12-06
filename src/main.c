@@ -2,7 +2,7 @@
 #include "init.h"
 
 #define COLUMNS 32
-#define ROWS 128
+#define ROWS 64
 
 
 
@@ -18,6 +18,7 @@ struct message {
 	unsigned char command;
 	unsigned char note;
 	unsigned char velocity;
+	unsigned char enable;
 };
 
 struct message messages[COLUMNS][ROWS];		// Matrix storing MIDI messages
@@ -28,6 +29,7 @@ void save_message(struct message msg) {
 
 	if (time_counter > beat_length / 2) {
 		save_column = (save_column + 1) % COLUMNS; // Round to nearest column
+		msg.enable = 0;												 // Don't play the very next beat
 	}
 
 	if (column_lengths[save_column] < ROWS) { // Make sure we don't overflow messages in save_column
@@ -58,7 +60,8 @@ void user_isr( void ) {
 		struct message msg = {
 			cmd,
 			note,
-			vel
+			vel,
+			1
 		};
 
 		save_message(msg);
@@ -177,13 +180,17 @@ int main(void) {
 			int i;
 			for (i = 0; i < column_lengths[current_column]; i++) {
 				struct message msg = messages[current_column][i];
-				/* Send MIDI message */
-				while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-				U1TXREG = msg.command;
-				while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-				U1TXREG = msg.note;
-				while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-				U1TXREG = msg.velocity;
+				if (msg.enable) {
+					/* Send MIDI message */
+					while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+					U1TXREG = msg.command;
+					while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+					U1TXREG = msg.note;
+					while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+					U1TXREG = msg.velocity;
+				} else {
+					messages[current_column][i].enable = 1;
+				}
 			}
 
 			time_counter = 0;
