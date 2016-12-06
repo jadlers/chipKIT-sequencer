@@ -57,14 +57,17 @@ void user_isr( void ) {
 		if (vel >> 7) {
 			return;
 		}
-		struct message msg = {
-			cmd,
-			note,
-			vel,
-			1
-		};
 
-		save_message(msg);
+		// Only save when recording is enabled
+		if (get_sw() & (1 << 2)) {
+			struct message msg = {
+				cmd,
+				note,
+				vel,
+				1
+			};
+			save_message(msg);
+		}
 	}
 	/* Timer2 interupt */
 	if (IFS(0) & (1 << 8)) {
