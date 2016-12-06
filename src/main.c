@@ -131,19 +131,22 @@ void metronome() {
 }
 
 void all_notes_off() {
-	int i;
-	for (i = 0; i < 128; i++) {
-		while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-		U1TXREG = 0x80;
-		while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-		U1TXREG = i;
-		while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-		U1TXREG = 0;
+	int i, j;
+	for (j = 0; j < 4; j++) {
+		for (i = 0; i < 128; i++) {
+			while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+			U1TXREG = 0x80;
+			while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+			U1TXREG = i;
+			while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+			U1TXREG = 0;
+		}
 	}
 }
 
 void fix_previous_column() {
 	int cleanup_column = (current_column + COLUMNS - 2) % COLUMNS;
+	int i;
 	for (i = 0; i < column_lengths[cleanup_column]; i++) {
 		struct message msg1 = messages[cleanup_column][i];
 		if (msg1.command == 0x90) {
