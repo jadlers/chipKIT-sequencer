@@ -12,6 +12,7 @@ int time_counter = 0;		// Amount of 1/100-seconds from beginning of the loop
 int beat_length;				// Amount of 1/100-seconds per beat (changed with potentiometer)
 int play = 1;						// Send MIDI from matrix
 int btns = 0;						// Stores pushbutton data for polling
+int record = 0;					// 1 if recording is on, 0 oterwise
 
 /* struct for MIDI messages */
 struct message {
@@ -59,7 +60,7 @@ void user_isr( void ) {
 		}
 
 		// Only save when recording is enabled
-		if (get_sw() & (1 << 2)) {
+		if (record && play) {
 			struct message msg = {
 				cmd,
 				note,
@@ -202,6 +203,7 @@ int main(void) {
 			time_counter = 0;
 		}
 
+		record = get_sw() & (1 << 2);
 		int new_btns = get_btns();
 		if (!(btns & 1) && (new_btns & 1)) {		// Button has been pressed
 			if (play) {
