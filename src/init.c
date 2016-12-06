@@ -25,8 +25,7 @@ void shield_input_init() {
 void timer_init() {
   /* Timer setup */
 	T2CON = 0;
-	T2CON |= 0x0060;		// Timer on (T2CON bit 1) (ITS NOT ON (0x8060 TO TURN ON))
-	T2CON &= ~0x010;		// Prescale 1:256 (T2CON bit 6-4 = 110)
+	T2CON |= 0x0060;		// Prescale 1:256 (T2CON bit 6-4 = 110)
 	PR2 = 12500;				// Set period to 12500
 	TMR2 = 0;						// Clear Timer2 counter
 

@@ -10,7 +10,8 @@ const int NOTE_ON_MAX = 10;
 int current_column = 0;
 int time_counter = 0;		// Amount of 1/100-seconds from beginning of the loop
 int beat_length;				// Amount of 1/100-seconds per beat (changed with potentiometer)
-int play = 0;						// Send MIDI from matrix
+int play = 1;						// Send MIDI from matrix
+int btns = 0;						// Stores pushbutton data for polling
 
 /* struct for MIDI messages */
 struct message {
@@ -21,7 +22,6 @@ struct message {
 
 struct message messages[COLUMNS][ROWS];		// Matrix storing MIDI messages
 unsigned char column_lengths[COLUMNS];		// Number of messages stored in each column
-unsigned char note_on_counters[COLUMNS];	// Number of note on messages stored in each column
 
 void save_message(struct message msg) {
 	int save_column = current_column;
@@ -123,16 +123,30 @@ void metronome() {
 	U1TXREG = 0;
 }
 
+void all_notes_off() {
+	int i;
+	for (i = 0; i < 128; i++) {
+		while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+		U1TXREG = 0x80;
+		while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+		U1TXREG = i;
+		while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+		U1TXREG = 0;
+	}
+}
+
+void clear_column_lengths() {
+	int i;
+	for (i = 0; i < COLUMNS; i++) {
+		column_lengths[i] = 0;
+	}
+}
+
 int main(void) {
 	quicksleep(10000000);
 	init();
+	clear_column_lengths();
 
-	// TODO move initialization of arrays to init.c
-  int i;
-  for (i = 0; i < COLUMNS; i++) {
-		column_lengths[i] = 0;
-		note_on_counters[i] = 0;
-  }
 
 	T2CON |= 0x8000;		// Timer on
 
@@ -156,32 +170,42 @@ int main(void) {
 			}
 
 			/* For loop to go trough all rows in current column */
-			if (play) {
-				if (current_column % 4 == 0) {
-					metronome();
-				}
-				int i;
-				for (i = 0; i < column_lengths[current_column]; i++) {
-					struct message msg = messages[current_column][i];
-					/* Send MIDI message */
-					while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-					U1TXREG = msg.command;
-					while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-					U1TXREG = msg.note;
-					while(U1STA & (1 << 9));	// Make sure the write buffer is not full
-					U1TXREG = msg.velocity;
-				}
+
+			if (current_column % 4 == 0) {
+				metronome();
+			}
+			int i;
+			for (i = 0; i < column_lengths[current_column]; i++) {
+				struct message msg = messages[current_column][i];
+				/* Send MIDI message */
+				while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+				U1TXREG = msg.command;
+				while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+				U1TXREG = msg.note;
+				while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+				U1TXREG = msg.velocity;
 			}
 
 			time_counter = 0;
 		}
-
-		int btns = get_btns();
-		if (btns & 1) {
-			play = 1;
-		} else if (btns & 2) {
-			play = 0;
+		// display_string(3, itoaconv(btns));
+		// display_update();
+		int new_btns = get_btns();
+		if (!(btns & 1) && (new_btns & 1)) {		// Button has been pressed
+			if (play) {
+				play = 0;
+				T2CON &= ~0x8000;		// Timer off
+				all_notes_off();
+			} else {
+				play = 1;
+				T2CON |= 0x8000;		// Timer on
+			}
 		}
+		if (!(btns >> 2 & 1) && (new_btns >> 2 & 1)) {
+			clear_column_lengths();
+			all_notes_off();
+		}
+		btns = new_btns;
 	}
 
 	return 0;
