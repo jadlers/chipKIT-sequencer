@@ -2,7 +2,9 @@
 #include "init.h"
 
 #define COLUMNS 32
-#define ROWS 64
+#define ROWS 128
+
+
 
 const int NOTE_ON_MAX = 10;
 int current_column = 0;
@@ -22,18 +24,10 @@ unsigned char column_lengths[COLUMNS];		// Number of messages stored in each col
 unsigned char note_on_counters[COLUMNS];	// Number of note on messages stored in each column
 
 void save_message(struct message msg) {
-	char note_on = ((msg.command & 0xF0) >> 4 == 0x9);	// 1 if command is note on, 0 otherwise
 	int save_column = current_column;
 
 	if (time_counter > beat_length / 2) {
 		save_column = (save_column + 1) % COLUMNS; // Round to nearest column
-	}
-
-	if (note_on) {
-		if (note_on_counters[save_column] >= NOTE_ON_MAX) {
-			return; // Maximum number of allowed note on commands in column reached: Don't save
-		}
-		note_on_counters[save_column]++;
 	}
 
 	if (column_lengths[save_column] < ROWS) { // Make sure we don't overflow messages in save_column
@@ -47,8 +41,20 @@ void user_isr( void ) {
 	/* MIDI receive interrupt */
 	if (IFS(0) & (1 << 27)) {
 		unsigned char cmd = U1RXREG & 0xFF;
+		if (cmd != 0x90 && cmd != 0x80) {
+			IFSCLR(0) = 1 << 27;	// Clear interrupt flag
+			return;
+		}
 		unsigned char note = U1RXREG & 0xFF;
+		if (note >> 7) {
+			IFSCLR(0) = 1 << 27;	// Clear interrupt flag
+			return;
+		}
 		unsigned char vel = U1RXREG & 0xFF;
+		IFSCLR(0) = 1 << 27;	// Clear interrupt flag
+		if (vel >> 7) {
+			return;
+		}
 		struct message msg = {
 			cmd,
 			note,
@@ -56,8 +62,6 @@ void user_isr( void ) {
 		};
 
 		save_message(msg);
-
-		IFSCLR(0) = 1 << 27;	// Clear interrupt flag
 	}
 	/* Timer2 interupt */
 	if (IFS(0) & (1 << 8)) {
@@ -104,6 +108,21 @@ void display_midi_info(struct message m) {
 	display_update();
 }
 
+void metronome() {
+	while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+	U1TXREG = 0x90;
+	while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+	U1TXREG = 100;
+	while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+	U1TXREG = 50;
+	while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+	U1TXREG = 0x80;
+	while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+	U1TXREG = 100;
+	while(U1STA & (1 << 9));	// Make sure the write buffer is not full
+	U1TXREG = 0;
+}
+
 int main(void) {
 	quicksleep(10000000);
 	init();
@@ -131,8 +150,16 @@ int main(void) {
 
 			PORTE = ~PORTE; // Flash the current tempo on the LEDs
 
+			/* Increment the current column and wrap around at end of matrix */
+			if (++current_column == COLUMNS) {
+				current_column = 0;
+			}
+
 			/* For loop to go trough all rows in current column */
 			if (play) {
+				if (current_column % 4 == 0) {
+					metronome();
+				}
 				int i;
 				for (i = 0; i < column_lengths[current_column]; i++) {
 					struct message msg = messages[current_column][i];
@@ -144,11 +171,6 @@ int main(void) {
 					while(U1STA & (1 << 9));	// Make sure the write buffer is not full
 					U1TXREG = msg.velocity;
 				}
-			}
-
-			/* Increment the current column and wrap around at end of matrix */
-			if (++current_column == COLUMNS) {
-				current_column = 0;
 			}
 
 			time_counter = 0;
