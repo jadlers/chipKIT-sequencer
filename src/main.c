@@ -162,7 +162,7 @@ int main(void) {
 			unsigned int value = (ADC1BUF0 >> 5);
 			beat_length = 32 - value;
 
-			PORTE = ~PORTE; // Flash the current tempo on the LEDs
+			PORTE = 1 << (7 - current_column % 8); // Flash the current tempo on the LEDs
 
 			/* Increment the current column and wrap around at end of matrix */
 			if (++current_column == COLUMNS) {
