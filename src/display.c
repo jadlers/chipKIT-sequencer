@@ -72,6 +72,14 @@ uint8_t spi_send_recv(uint8_t data) {
 	return SPI2BUF;
 }
 
+void display_int_indented(int row, int number) {
+  int s_pos = 7;
+  textbuffer[row][s_pos] = itoaconv(number)[0];
+  if (number > 9) {
+    textbuffer[row][s_pos+1] = itoaconv(number)[1];
+  }
+}
+
 void display_init(void) {
   /* Output pins for display signals */
 	PORTF = 0xFFFF;

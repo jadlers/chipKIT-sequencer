@@ -3,9 +3,8 @@
 
 #define COLUMNS 32
 #define ROWS 64
-#define UNDO_LENGTH 10
+#define UNDO_LENGTH 15
 
-const int NOTE_ON_MAX = 10;
 int current_column = 0;
 int time_counter = 0;		// Amount of 1/100-seconds from beginning of the loop
 int beat_length;				// Amount of 1/100-seconds per beat (changed with potentiometer)
@@ -15,6 +14,7 @@ int record = 0;					// 1 if recording is on, 0 oterwise
 int undo_index = 0;			// Current undo step
 int highest_note = 0;		// The highest note stored in the sequence
 int lowest_note = 127;		// The lowest note stored in the sequence
+int tempo_timer = 0;
 
 /* struct for MIDI messages */
 struct message {
@@ -94,6 +94,7 @@ void user_isr( void ) {
 	/* Timer2 interupt */
 	if (IFS(0) & (1 << 8)) {
 		time_counter++;
+		tempo_timer++;
 		TMR2 = 0;						// Clear Timer2 counter
 		IFSCLR(0) = 1 << 8;	// Clear interupt flag
 	}
@@ -274,6 +275,9 @@ void handle_input() {
 				}
 			}
 		}
+		display_string(0, "Saved:");
+		display_int_indented(0, undo_index);
+		display_update();
 	}
 
 	if (record && !new_record) {															// Record switch flipped down
@@ -288,6 +292,9 @@ void handle_input() {
 				prev_column_lengths[undo_index][i] = column_lengths[i];
 			}
 		}
+		display_string(0, "Saved:");
+		display_int_indented(0, undo_index);
+		display_update();
 	}
 
 	btns = new_btns;
@@ -306,6 +313,10 @@ void update_tempo() {
 	beat_length = 32 - value;
 
 	PORTE = 1 << (7 - current_column % 8); // Flash the current tempo on the LEDs
+
+	display_string(1, "Tempo:");
+	display_int_indented(1, (33 - beat_length));
+	display_update();
 }
 
 int main(void) {
@@ -348,9 +359,13 @@ int main(void) {
 			}
 
 			fix_previous_column();
-			update_tempo();
 		}
 		handle_input();
+
+		if (tempo_timer > 5) {
+			tempo_timer = 0;
+			update_tempo();
+		}
 
 	}
 
