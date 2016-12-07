@@ -12,7 +12,7 @@ All buttons and switches are read from right to left (4 3 2 1)
 
 ## Switches
 
-1. Matrix select
+1. Nothing
 2. Transpose control (Up/Down)
 3. Record enable
 4. Metronome enable
