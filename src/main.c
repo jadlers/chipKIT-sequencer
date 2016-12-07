@@ -5,8 +5,6 @@
 #define ROWS 64
 #define UNDO_LENGTH 10
 
-
-
 const int NOTE_ON_MAX = 10;
 int current_column = 0;
 int time_counter = 0;		// Amount of 1/100-seconds from beginning of the loop
@@ -15,6 +13,8 @@ int play = 1;						// Send MIDI from matrix
 int btns = 0;						// Stores pushbutton data for polling
 int record = 0;					// 1 if recording is on, 0 oterwise
 int undo_index = 0;			// Current undo step
+int highest_note = 0;		// The highest note stored in the sequence
+int lowest_note = 127;		// The lowest note stored in the sequence
 
 /* struct for MIDI messages */
 struct message {
@@ -80,6 +80,14 @@ void user_isr( void ) {
 				vel,
 				1
 			};
+
+			if (note > highest_note) {
+				highest_note = note;
+			}
+			if (note < lowest_note) {
+				lowest_note = note;
+			}
+
 			save_message(msg);
 		}
 	}
@@ -186,9 +194,27 @@ void clear_column_array(unsigned char *arr) {
 void handle_input() {
 	int new_record = get_sw() & (1 << 2);
 	int new_btns = get_btns();
-if (!(btns & 1) && (new_btns & 1)) {												// Transpose pushed down
-		// Transpose btn pressed
+
+	if (!(btns & 1) && (new_btns & 1)) {												// Transpose pushed down
+		display_string(0, itoaconv(highest_note));
+		display_string(1, itoaconv(lowest_note));
+		display_update();
+		int transpose_up = get_sw() & 2;
+		if (!(transpose_up && highest_note == 127) && !(!transpose_up && lowest_note == 0)) {
+			int i, j;
+			for (i = 0; i < COLUMNS; i++) {
+				for (j = 0; j < column_lengths[i]; j++) {
+					if (transpose_up) {
+						messages[i][j].note++;
+					} else {
+						messages[i][j].note--;
+					}
+				}
+			}
+		}
+		all_notes_off();
 	}
+
 	if (!(btns & 2) && (new_btns & 2)) {											// Play/Pause pushed down
 		if (play) {
 			play = 0;
@@ -203,11 +229,13 @@ if (!(btns & 1) && (new_btns & 1)) {												// Transpose pushed down
 			T2CON |= 0x8000;		// Timer on
 		}
 	}
+
 	if (!(btns & 8) && (new_btns & 8)) {											// Clear pushed down
 		clear_column_array(column_lengths);
 		all_notes_off();
 		undo_index = 0;
 	}
+
 	if (!(btns & 4) && (new_btns & 4) && undo_index > 0) {		// Undo pushed down
 		undo_index--;
 		int i;
@@ -216,6 +244,7 @@ if (!(btns & 1) && (new_btns & 1)) {												// Transpose pushed down
 		}
 		all_notes_off();
 	}
+
 	if (record && !new_record) {															// Record switch flipped down
 		int different = 0;
 		int i;
@@ -234,8 +263,8 @@ if (!(btns & 1) && (new_btns & 1)) {												// Transpose pushed down
 				prev_column_lengths[undo_index][i] = column_lengths[i];
 			}
 		}
-
 	}
+
 	btns = new_btns;
 	record = new_record;
 }
