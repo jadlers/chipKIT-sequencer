@@ -69,7 +69,7 @@ void user_isr( void ) {
 			return;
 		}
 
-		// Only save when recording is enabled
+		// Only save when record & play is enabled
 		if (record && play) {
 			struct message msg = {
 				cmd,
@@ -88,10 +88,12 @@ void user_isr( void ) {
 	}
 }
 
+// Return the state of all switches
 int get_sw( void ) {
    return ((PORTD & (0xF << 8)) >> 8);
 }
 
+// Return all 4 pushbutton states
 int get_btns(void) {
    return ((PORTD & (7 << 5)) >> 4) | (( PORTF & 2) >> 1);
 }
@@ -118,6 +120,7 @@ void display_midi_info(struct message m) {
 	display_update();
 }
 
+// Sends a note on and off for the same note in the same beat
 void metronome() {
 	struct message note_on = {0x90, 100, 50, 0};
 	struct message note_off = {0x80, 100, 0, 0};
@@ -125,6 +128,7 @@ void metronome() {
 	send_midi_message(note_off);
 }
 
+// Sends note off messages for all notes 4 times
 void all_notes_off() {
 	int i, j;
 	for (j = 0; j < 4; j++) {
@@ -135,6 +139,12 @@ void all_notes_off() {
 	}
 }
 
+/*
+Goes through the column played 2 beats ago and:
+	- Removes duplicated note on messages for the same note in the same column.
+	- If a note has both a note on and note off in the same column, move the note of
+	  to the next column
+*/
 void fix_previous_column() {
 	int cleanup_column = (current_column + COLUMNS - 2) % COLUMNS;
 	int i;
@@ -161,6 +171,7 @@ void fix_previous_column() {
 	}
 }
 
+// Set all values in column_lengths to 0
 void clear_column_lengths() {
 	int i;
 	for (i = 0; i < COLUMNS; i++) {
@@ -168,6 +179,7 @@ void clear_column_lengths() {
 	}
 }
 
+// Handles the functionallity for all buttons and switches
 void handle_input() {
 	record = get_sw() & (1 << 2);
 	int new_btns = get_btns();
@@ -195,6 +207,7 @@ void handle_input() {
 	btns = new_btns;
 }
 
+// Reads the potentiometer and adjusts the tempo accordingly
 void update_tempo() {
 	/* Start sampling potentiometer, wait until conversion is done */
 	AD1CON1 |= (0x1 << 1);
