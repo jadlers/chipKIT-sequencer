@@ -190,6 +190,16 @@ void clear_column_array(unsigned char *arr) {
 	}
 }
 
+int notes_recorded() {
+	int i;
+	for (i = 0; i < COLUMNS; i++) { // Check if column_lengths changed
+		if (prev_column_lengths[undo_index][i] != column_lengths[i]) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
 // Handles the functionallity for all buttons and switches
 void handle_input() {
 	int new_record = get_sw() & (1 << 2);
@@ -236,8 +246,10 @@ void handle_input() {
 		undo_index = 0;
 	}
 
-	if (!(btns & 4) && (new_btns & 4) && undo_index > 0) {		// Undo pushed down
-		undo_index--;
+	if (!(btns & 4) && (new_btns & 4)) {		// Undo pushed down
+		if (!notes_recorded() && undo_index > 0) {
+			undo_index--;
+		}
 		int i;
 		for (i = 0; i < COLUMNS; i++) {
 			column_lengths[i] = prev_column_lengths[undo_index][i];
@@ -246,19 +258,13 @@ void handle_input() {
 	}
 
 	if (record && !new_record) {															// Record switch flipped down
-		int different = 0;
-		int i;
-		for (i = 0; i < COLUMNS; i++) { // Check if column_lengths changed
-			if (prev_column_lengths[undo_index][i] != column_lengths[i]) {
-				different = 1;
-				break;
-			}
-		}
+		int different = notes_recorded();
 		// If so store current column_lengths on prev_column_lengths[undo_index]
 		if (different) {
 			if (++undo_index == UNDO_LENGTH) { // Make sure undo_index don't get out of bounds
 				undo_index = UNDO_LENGTH - 1;
 			}
+			int i;
 			for (i = 0; i < COLUMNS; i++) {
 				prev_column_lengths[undo_index][i] = column_lengths[i];
 			}
