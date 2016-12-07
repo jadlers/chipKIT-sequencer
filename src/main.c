@@ -3,6 +3,7 @@
 
 #define COLUMNS 32
 #define ROWS 64
+#define UNDO_LENGTH 10
 
 
 
@@ -13,6 +14,7 @@ int beat_length;				// Amount of 1/100-seconds per beat (changed with potentiome
 int play = 1;						// Send MIDI from matrix
 int btns = 0;						// Stores pushbutton data for polling
 int record = 0;					// 1 if recording is on, 0 oterwise
+int undo_index = 0;			// Current undo step
 
 /* struct for MIDI messages */
 struct message {
@@ -22,8 +24,9 @@ struct message {
 	unsigned char enable;
 };
 
-struct message messages[COLUMNS][ROWS];		// Matrix storing MIDI messages
-unsigned char column_lengths[COLUMNS];		// Number of messages stored in each column
+struct message messages[COLUMNS][ROWS];										// Matrix storing MIDI messages
+unsigned char column_lengths[COLUMNS];										// Number of messages stored in each column
+unsigned char prev_column_lengths[UNDO_LENGTH][COLUMNS];	// Stores copy of column_lengths for undo steps
 
 /* Send MIDI message */
 void send_midi_message(struct message msg) {
@@ -172,21 +175,21 @@ void fix_previous_column() {
 }
 
 // Set all values in column_lengths to 0
-void clear_column_lengths() {
+void clear_column_array(unsigned char *arr) {
 	int i;
 	for (i = 0; i < COLUMNS; i++) {
-		column_lengths[i] = 0;
+		arr[i] = 0;
 	}
 }
 
 // Handles the functionallity for all buttons and switches
 void handle_input() {
-	record = get_sw() & (1 << 2);
+	int new_record = get_sw() & (1 << 2);
 	int new_btns = get_btns();
-	if (!(btns & 1) && (new_btns & 1)) {
+if (!(btns & 1) && (new_btns & 1)) {												// Transpose pushed down
 		// Transpose btn pressed
 	}
-	if (!(btns & 2) && (new_btns & 2)) {		// Button has been pressed
+	if (!(btns & 2) && (new_btns & 2)) {											// Play/Pause pushed down
 		if (play) {
 			play = 0;
 			T2CON &= ~0x8000;		// Timer off
@@ -200,11 +203,41 @@ void handle_input() {
 			T2CON |= 0x8000;		// Timer on
 		}
 	}
-	if (!(btns & 8) && (new_btns & 8)) {
-		clear_column_lengths();
+	if (!(btns & 8) && (new_btns & 8)) {											// Clear pushed down
+		clear_column_array(column_lengths);
+		all_notes_off();
+		undo_index = 0;
+	}
+	if (!(btns & 4) && (new_btns & 4) && undo_index > 0) {		// Undo pushed down
+		undo_index--;
+		int i;
+		for (i = 0; i < COLUMNS; i++) {
+			column_lengths[i] = prev_column_lengths[undo_index][i];
+		}
 		all_notes_off();
 	}
+	if (record && !new_record) {															// Record switch flipped down
+		int different = 0;
+		int i;
+		for (i = 0; i < COLUMNS; i++) { // Check if column_lengths changed
+			if (prev_column_lengths[undo_index][i] != column_lengths[i]) {
+				different = 1;
+				break;
+			}
+		}
+		// If so store current column_lengths on prev_column_lengths[undo_index]
+		if (different) {
+			if (++undo_index == UNDO_LENGTH) { // Make sure undo_index don't get out of bounds
+				undo_index = UNDO_LENGTH - 1;
+			}
+			for (i = 0; i < COLUMNS; i++) {
+				prev_column_lengths[undo_index][i] = column_lengths[i];
+			}
+		}
+
+	}
 	btns = new_btns;
+	record = new_record;
 }
 
 // Reads the potentiometer and adjusts the tempo accordingly
@@ -224,7 +257,8 @@ void update_tempo() {
 int main(void) {
 	quicksleep(10000000);
 	init();
-	clear_column_lengths();
+	clear_column_array(column_lengths);
+	clear_column_array(prev_column_lengths[0]);
 
 
 	T2CON |= 0x8000;		// Timer on
