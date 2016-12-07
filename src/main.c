@@ -206,11 +206,15 @@ void handle_input() {
 	int new_btns = get_btns();
 
 	if (!(btns & 1) && (new_btns & 1)) {												// Transpose pushed down
-		display_string(0, itoaconv(highest_note));
-		display_string(1, itoaconv(lowest_note));
-		display_update();
 		int transpose_up = get_sw() & 2;
 		if (!(transpose_up && highest_note == 127) && !(!transpose_up && lowest_note == 0)) {
+			if (transpose_up) {
+				highest_note++;
+				lowest_note++;
+			} else {
+				highest_note--;
+				lowest_note--;
+			}
 			int i, j;
 			for (i = 0; i < COLUMNS; i++) {
 				for (j = 0; j < column_lengths[i]; j++) {
@@ -244,17 +248,32 @@ void handle_input() {
 		clear_column_array(column_lengths);
 		all_notes_off();
 		undo_index = 0;
+		highest_note = 0;
+		lowest_note = 127;
 	}
 
 	if (!(btns & 4) && (new_btns & 4)) {		// Undo pushed down
 		if (!notes_recorded() && undo_index > 0) {
 			undo_index--;
 		}
-		int i;
+		int i, j;
 		for (i = 0; i < COLUMNS; i++) {
 			column_lengths[i] = prev_column_lengths[undo_index][i];
 		}
 		all_notes_off();
+		highest_note = 0;
+		lowest_note = 127;
+		for (i = 0; i < COLUMNS; i++) {
+			for (j = 0; j < column_lengths[i]; j++) {
+				unsigned char note = messages[i][j].note;
+				if (note > highest_note) {
+					highest_note = note;
+				}
+				if (note < lowest_note) {
+					lowest_note = note;
+				}
+			}
+		}
 	}
 
 	if (record && !new_record) {															// Record switch flipped down
