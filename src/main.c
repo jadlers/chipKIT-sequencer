@@ -93,7 +93,7 @@ int get_sw( void ) {
 }
 
 int get_btns(void) {
-   return ((PORTD & (7 << 5)) >> 5);
+   return ((PORTD & (7 << 5)) >> 4) | (( PORTF & 2) >> 1);
 }
 
 /* Display info about a MIDI message */
@@ -171,7 +171,10 @@ void clear_column_lengths() {
 void handle_input() {
 	record = get_sw() & (1 << 2);
 	int new_btns = get_btns();
-	if (!(btns & 1) && (new_btns & 1)) {		// Button has been pressed
+	if (!(btns & 1) && (new_btns & 1)) {
+		// Transpose btn pressed
+	}
+	if (!(btns & 2) && (new_btns & 2)) {		// Button has been pressed
 		if (play) {
 			play = 0;
 			T2CON &= ~0x8000;		// Timer off
@@ -185,7 +188,7 @@ void handle_input() {
 			T2CON |= 0x8000;		// Timer on
 		}
 	}
-	if (!(btns >> 2 & 1) && (new_btns >> 2 & 1)) {
+	if (!(btns & 8) && (new_btns & 8)) {
 		clear_column_lengths();
 		all_notes_off();
 	}

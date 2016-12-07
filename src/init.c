@@ -1,8 +1,9 @@
 #include <pic32mx.h>
 
 void shield_input_init() {
-  /* Set buttons and switches to input */
+  /* Set all buttons and switches to input */
 	TRISDSET = (0x7f << 5);
+	TRISFSET = 2;
 
   /* Potentiometer */
   /* PORTB.2 is analog pin with potentiometer*/
