@@ -91,9 +91,4 @@ void init() {
   display_init();
   shield_input_init();
 	enable_interrupt(); // Enable interrupts globally
-
-  /* Display that the initialization is complete */
-	display_string(1,"I'm ready");
-	display_string(2,"try me!");
-	display_update();
 }

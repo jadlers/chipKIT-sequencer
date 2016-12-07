@@ -292,8 +292,14 @@ void handle_input() {
 				prev_column_lengths[undo_index][i] = column_lengths[i];
 			}
 		}
+		display_string(2, "");
 		display_string(0, "Saved:");
 		display_int_indented(0, undo_index);
+		display_update();
+	}
+
+	if (!record && new_record) {
+		display_string(2, "Recording");
 		display_update();
 	}
 
@@ -324,6 +330,11 @@ int main(void) {
 	init();
 	clear_column_array(column_lengths);
 	clear_column_array(prev_column_lengths[0]);
+
+	// Initialise display message
+	display_string(0, "Saved:");
+	display_int_indented(0, 0);
+	display_update();
 
 
 	T2CON |= 0x8000;		// Timer on
