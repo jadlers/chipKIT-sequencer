@@ -251,6 +251,9 @@ void handle_input() {
 		undo_index = 0;
 		highest_note = 0;
 		lowest_note = 127;
+		display_string(0, "Saved:");
+		display_int_indented(0, undo_index);
+		display_update();
 	}
 
 	if (!(btns & 4) && (new_btns & 4)) {		// Undo pushed down
