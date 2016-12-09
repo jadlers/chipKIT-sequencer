@@ -191,6 +191,7 @@ void clear_column_array(unsigned char *arr) {
 	}
 }
 
+// Returns 1 if any value in column_lengths is different from the value in the last saved version.
 int notes_recorded() {
 	int i;
 	for (i = 0; i < COLUMNS; i++) { // Check if column_lengths changed
@@ -201,6 +202,11 @@ int notes_recorded() {
 	return 0;
 }
 
+/*
+	If neither the highest nor lowest note is the highest/lowest possible note
+	shift all notes either up or down by one depending on if the transpose switch
+	is up or down
+*/
 void transpose() {
 	int transpose_up = get_sw() & 2;
 	if (!(transpose_up && highest_note == 127) && !(!transpose_up && lowest_note == 0)) {
@@ -225,6 +231,7 @@ void transpose() {
 	all_notes_off();
 }
 
+// Toggles the timer and displays current state
 void play_pause() {
 	if (play) {
 		play = 0;
@@ -240,6 +247,7 @@ void play_pause() {
 	}
 }
 
+// Reverts column_lengths to previous saved state
 void undo() {
 	if (!notes_recorded() && undo_index > 0) {
 		undo_index--;
@@ -265,7 +273,7 @@ void undo() {
 	display_string_int(0, "Saved:", undo_index);
 }
 
-
+// Clear all recorded notes, saves and resets the highest/lowest note
 void clear() {
 	clear_column_array(column_lengths);
 	all_notes_off();
@@ -275,6 +283,7 @@ void clear() {
 	display_string_int(0, "Saved:", undo_index);
 }
 
+// Saves column_lengths if new notes has been recorded since last save
 void save_column_lengths() {
 	if (notes_recorded()) {
 		if (++undo_index == UNDO_LENGTH) { 		// Make sure undo_index don't get out of bounds
