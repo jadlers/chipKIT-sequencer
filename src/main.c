@@ -201,107 +201,126 @@ int notes_recorded() {
 	return 0;
 }
 
+void transpose() {
+	int transpose_up = get_sw() & 2;
+	if (!(transpose_up && highest_note == 127) && !(!transpose_up && lowest_note == 0)) {
+		if (transpose_up) {
+			highest_note++;
+			lowest_note++;
+		} else {
+			highest_note--;
+			lowest_note--;
+		}
+		int i, j;
+		for (i = 0; i < COLUMNS; i++) {
+			for (j = 0; j < column_lengths[i]; j++) {
+				if (transpose_up) {
+					messages[i][j].note++;
+				} else {
+					messages[i][j].note--;
+				}
+			}
+		}
+	}
+	all_notes_off();
+}
+
+void play_pause() {
+	if (play) {
+		play = 0;
+		T2CON &= ~0x8000;		// Timer off
+		display_string(3, "Paused");
+		display_update();
+		all_notes_off();
+	} else {
+		play = 1;
+		display_string(3, "Playing");
+		display_update();
+		T2CON |= 0x8000;		// Timer on
+	}
+}
+
+void undo() {
+	if (!notes_recorded() && undo_index > 0) {
+		undo_index--;
+	}
+	int i, j;
+	for (i = 0; i < COLUMNS; i++) {
+		column_lengths[i] = prev_column_lengths[undo_index][i];
+	}
+	all_notes_off();
+	highest_note = 0;
+	lowest_note = 127;
+	for (i = 0; i < COLUMNS; i++) {	// Look up new highest/lowest note
+		for (j = 0; j < column_lengths[i]; j++) {
+			unsigned char note = messages[i][j].note;
+			if (note > highest_note) {
+				highest_note = note;
+			}
+			if (note < lowest_note) {
+				lowest_note = note;
+			}
+		}
+	}
+	display_string(0, "Saved:");
+	display_int_indented(0, undo_index);
+	display_update();
+}
+
+
+void clear() {
+	clear_column_array(column_lengths);
+	all_notes_off();
+	undo_index = 0;
+	highest_note = 0;
+	lowest_note = 127;
+	display_string(0, "Saved:");
+	display_int_indented(0, undo_index);
+	display_update();
+}
+
+void save_column_lengths() {
+	if (notes_recorded()) {
+		if (++undo_index == UNDO_LENGTH) { 		// Make sure undo_index don't get out of bounds
+			undo_index = UNDO_LENGTH - 1;
+		}
+		int i;
+		for (i = 0; i < COLUMNS; i++) {
+			prev_column_lengths[undo_index][i] = column_lengths[i];
+		}
+		display_string(2, "");								// Clear "recording" from display
+		display_string(0, "Saved:");
+		display_int_indented(0, undo_index);
+		display_update();
+	}
+}
+
 // Handles the functionallity for all buttons and switches
 void handle_input() {
 	int new_record = get_sw() & (1 << 2);
 	int new_btns = get_btns();
 
-	if (!(btns & 1) && (new_btns & 1)) {												// Transpose pushed down
-		int transpose_up = get_sw() & 2;
-		if (!(transpose_up && highest_note == 127) && !(!transpose_up && lowest_note == 0)) {
-			if (transpose_up) {
-				highest_note++;
-				lowest_note++;
-			} else {
-				highest_note--;
-				lowest_note--;
-			}
-			int i, j;
-			for (i = 0; i < COLUMNS; i++) {
-				for (j = 0; j < column_lengths[i]; j++) {
-					if (transpose_up) {
-						messages[i][j].note++;
-					} else {
-						messages[i][j].note--;
-					}
-				}
-			}
-		}
-		all_notes_off();
+	if (!(btns & 1) && (new_btns & 1)) {			// Transpose pushed down
+		transpose();
 	}
 
-	if (!(btns & 2) && (new_btns & 2)) {											// Play/Pause pushed down
-		if (play) {
-			play = 0;
-			T2CON &= ~0x8000;		// Timer off
-			display_string(3, "Paused");
-			display_update();
-			all_notes_off();
-		} else {
-			play = 1;
-			display_string(3, "Playing");
-			display_update();
-			T2CON |= 0x8000;		// Timer on
-		}
+	if (!(btns & 2) && (new_btns & 2)) {			// Play/Pause pushed down
+		play_pause();
 	}
 
-	if (!(btns & 8) && (new_btns & 8)) {											// Clear pushed down
-		clear_column_array(column_lengths);
-		all_notes_off();
-		undo_index = 0;
-		highest_note = 0;
-		lowest_note = 127;
-		display_string(0, "Saved:");
-		display_int_indented(0, undo_index);
-		display_update();
+	if (!(btns & 4) && (new_btns & 4)) {			// Undo pushed down
+		undo();
 	}
 
-	if (!(btns & 4) && (new_btns & 4)) {		// Undo pushed down
-		if (!notes_recorded() && undo_index > 0) {
-			undo_index--;
-		}
-		int i, j;
-		for (i = 0; i < COLUMNS; i++) {
-			column_lengths[i] = prev_column_lengths[undo_index][i];
-		}
-		all_notes_off();
-		highest_note = 0;
-		lowest_note = 127;
-		for (i = 0; i < COLUMNS; i++) {
-			for (j = 0; j < column_lengths[i]; j++) {
-				unsigned char note = messages[i][j].note;
-				if (note > highest_note) {
-					highest_note = note;
-				}
-				if (note < lowest_note) {
-					lowest_note = note;
-				}
-			}
-		}
-		display_string(0, "Saved:");
-		display_int_indented(0, undo_index);
-		display_update();
+	if (!(btns & 8) && (new_btns & 8)) {			// Clear pushed down
+		clear();
 	}
 
-	if (record && !new_record) {															// Record switch flipped down
-		int different = notes_recorded();
-		// If so store current column_lengths on prev_column_lengths[undo_index]
-		if (different) {
-			if (++undo_index == UNDO_LENGTH) { // Make sure undo_index don't get out of bounds
-				undo_index = UNDO_LENGTH - 1;
-			}
-			int i;
-			for (i = 0; i < COLUMNS; i++) {
-				prev_column_lengths[undo_index][i] = column_lengths[i];
-			}
-		}
-		display_string(2, "");
-		display_string(0, "Saved:");
-		display_int_indented(0, undo_index);
-		display_update();
+	if (record && !new_record) {							// Record switch flipped down
+		save_column_lengths();
 	}
 
-	if (!record && new_record) {
+	if (!record && new_record) {							// Record switch flipped up
 		display_string(2, "Recording");
 		display_update();
 	}
