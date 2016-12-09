@@ -13,6 +13,7 @@ void display_init(void);
 void display_string(int line, char *s);
 void display_update(void);
 void display_int_indented(int row, int number);
+void display_string_int(int row, char *str, int number);
 uint8_t spi_send_recv(uint8_t data);
 
 /* Declare display_debug - a function to help debugging.

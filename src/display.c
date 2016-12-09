@@ -72,6 +72,12 @@ uint8_t spi_send_recv(uint8_t data) {
 	return SPI2BUF;
 }
 
+void display_string_int(int row, char *str, int number) {
+  display_string(row, str);
+  display_int_indented(row, number);
+  display_update();
+}
+
 void display_int_indented(int row, int number) {
   int s_pos = 7;
   textbuffer[row][s_pos] = itoaconv(number)[0];
