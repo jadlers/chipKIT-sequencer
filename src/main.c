@@ -262,9 +262,7 @@ void undo() {
 			}
 		}
 	}
-	display_string(0, "Saved:");
-	display_int_indented(0, undo_index);
-	display_update();
+	display_string_int(0, "Saved:", undo_index);
 }
 
 
@@ -274,9 +272,7 @@ void clear() {
 	undo_index = 0;
 	highest_note = 0;
 	lowest_note = 127;
-	display_string(0, "Saved:");
-	display_int_indented(0, undo_index);
-	display_update();
+	display_string_int(0, "Saved:", undo_index);
 }
 
 void save_column_lengths() {
@@ -289,9 +285,7 @@ void save_column_lengths() {
 			prev_column_lengths[undo_index][i] = column_lengths[i];
 		}
 		display_string(2, "");								// Clear "recording" from display
-		display_string(0, "Saved:");
-		display_int_indented(0, undo_index);
-		display_update();
+		display_string_int(0, "Saved:", undo_index);
 	}
 }
 
@@ -342,9 +336,7 @@ void update_tempo() {
 
 	PORTE = 1 << (7 - current_column % 8); // Flash the current tempo on the LEDs
 
-	display_string(1, "Tempo:");
-	display_int_indented(1, (33 - beat_length));
-	display_update();
+	display_string_int(1, "Tempo:", (33 - beat_length));
 }
 
 int main(void) {
@@ -354,9 +346,7 @@ int main(void) {
 	clear_column_array(prev_column_lengths[0]);
 
 	// Initialise display message
-	display_string(0, "Saved:");
-	display_int_indented(0, 0);
-	display_update();
+	display_string_int(0, "Saved:", undo_index);
 
 
 	T2CON |= 0x8000;		// Timer on
