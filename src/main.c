@@ -72,14 +72,15 @@ void user_isr( void ) {
 			return;
 		}
 
+		struct message msg = {
+			cmd,
+			note,
+			vel,
+			1
+		};
+
 		// Only save when record & play is enabled
 		if (record && play) {
-			struct message msg = {
-				cmd,
-				note,
-				vel,
-				1
-			};
 
 			if (note > highest_note) {
 				highest_note = note;
@@ -90,6 +91,11 @@ void user_isr( void ) {
 
 			save_message(msg);
 		}
+
+		if (get_sw() & 1) {
+			send_midi_message(msg);
+		}
+
 	}
 	/* Timer2 interupt */
 	if (IFS(0) & (1 << 8)) {
